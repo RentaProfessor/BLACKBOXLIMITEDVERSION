@@ -27,6 +27,76 @@ BLACK BOX is a complete offline software stack designed for elderly users to man
 
 ## Installation
 
+### Quick Start - JetPack 6.0 Installation Steps
+
+**Complete installation sequence for NVIDIA Jetson Orin Nano 8GB:**
+
+```bash
+# 1. OS prep
+sudo apt update && sudo apt full-upgrade -y
+sudo nvpmodel -m 0
+sudo jetson_clocks
+sudo apt install -y python3-pip python3-venv python3-pyqt5 \
+                    ffmpeg inotify-tools sqlcipher libsqlcipher-dev \
+                    docker.io nvidia-container-toolkit p7zip-full
+sudo nvidia-ctk runtime configure
+sudo systemctl restart docker
+sudo usermod -aG audio,video,docker $USER
+
+# 2. Mount NVMe (whole disk approach)
+sudo mkfs.ext4 -F /dev/nvme0n1
+sudo mkdir -p /mnt/nvme
+sudo mount /dev/nvme0n1 /mnt/nvme
+sudo blkid | grep nvme0n1 | awk -F\" '{print $2}' | \
+  xargs -I{} sudo bash -c 'echo "UUID={} /mnt/nvme ext4 defaults 0 2" >> /etc/fstab'
+
+# 3. Create 16GB swap on NVMe
+sudo systemctl disable nvzramconfig.service
+sudo fallocate -l 16G /mnt/nvme/swapfile
+sudo chmod 600 /mnt/nvme/swapfile
+sudo mkswap /mnt/nvme/swapfile
+sudo swapon /mnt/nvme/swapfile
+free -h
+
+# 4. Set ALSA default to USB device
+arecord -l && aplay -l  # find your USB card index (often 1)
+sudo tee /etc/asound.conf <<'EOF'
+pcm.!default { type hw card 1 }
+ctl.!default { type hw card 1 }
+EOF
+
+# 5. Clone repo to NVMe + venv
+cd /mnt/nvme
+git clone https://github.com/RentaProfessor/BLACKBOXLIMITEDVERSION.git blackbox
+cd blackbox
+python3 -m venv .venv && source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 6. Provision models & voices
+sudo chmod +x bin/first_boot.sh
+sudo ./bin/first_boot.sh
+
+# 7. Smoke tests
+aplay /usr/share/sounds/alsa/Front_Center.wav
+python3 - <<'PY'
+from blackbox.audio.tts import speak
+speak("Black Box ready")
+PY
+bash scripts/test_asr.sh
+python3 scripts/test_vault.py
+
+# 8. Run UI once (manual)
+export QT_QPA_PLATFORM=eglfs   # only if running without desktop
+python3 blackbox/ui/main.py
+
+# 9. Autostart
+sudo cp systemd/blackbox.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now blackbox.service
+journalctl -u blackbox -f
+```
+
 ### Prerequisites
 
 - NVIDIA Jetson Orin Nano 8GB with JetPack 6
@@ -42,15 +112,44 @@ BLACK BOX is a complete offline software stack designed for elderly users to man
 2. Flash Ubuntu 22.04 to microSD card
 3. Boot Jetson from microSD card
 4. Complete initial Ubuntu setup
-5. Update system: `sudo apt update && sudo apt upgrade -y`
+5. Update system and install dependencies:
+```bash
+sudo apt update && sudo apt full-upgrade -y
+sudo nvpmodel -m 0
+sudo jetson_clocks
+sudo apt install -y python3-pip python3-venv python3-pyqt5 \
+                    ffmpeg inotify-tools sqlcipher libsqlcipher-dev \
+                    docker.io nvidia-container-toolkit p7zip-full
+sudo nvidia-ctk runtime configure
+sudo systemctl restart docker
+sudo usermod -aG audio,video,docker $USER
+```
 
 ### 2. NVMe Drive Setup
 
+**Option A: Whole Disk (Recommended - Simple)**
 ```bash
 # Find NVMe device
 lsblk
 
-# Create partition (if needed)
+# Format whole disk
+sudo mkfs.ext4 -F /dev/nvme0n1
+
+# Create mount point and mount
+sudo mkdir -p /mnt/nvme
+sudo mount /dev/nvme0n1 /mnt/nvme
+
+# Add to fstab using UUID for reliability
+sudo blkid | grep nvme0n1 | awk -F\" '{print $2}' | \
+  xargs -I{} sudo bash -c 'echo "UUID={} /mnt/nvme ext4 defaults 0 2" >> /etc/fstab'
+```
+
+**Option B: Partitioned (Advanced)**
+```bash
+# Find NVMe device
+lsblk
+
+# Create partition
 sudo parted /dev/nvme0n1 mklabel gpt
 sudo parted /dev/nvme0n1 mkpart primary ext4 0% 100%
 
@@ -61,11 +160,28 @@ sudo mkfs.ext4 /dev/nvme0n1p1
 sudo mkdir -p /mnt/nvme
 sudo mount /dev/nvme0n1p1 /mnt/nvme
 
-# Add to fstab for persistence
-echo "/dev/nvme0n1p1 /mnt/nvme ext4 defaults 0 2" | sudo tee -a /etc/fstab
+# Add to fstab using UUID for reliability
+sudo blkid | grep nvme0n1p1 | awk -F\" '{print $2}' | \
+  xargs -I{} sudo bash -c 'echo "UUID={} /mnt/nvme ext4 defaults 0 2" >> /etc/fstab'
 ```
 
-### 3. First Boot Provisioning
+### 3. Create Swap File (16GB on NVMe)
+
+```bash
+# Disable zram first (Jetson default)
+sudo systemctl disable nvzramconfig.service
+
+# Create 16GB swap file on NVMe
+sudo fallocate -l 16G /mnt/nvme/swapfile
+sudo chmod 600 /mnt/nvme/swapfile
+sudo mkswap /mnt/nvme/swapfile
+sudo swapon /mnt/nvme/swapfile
+
+# Verify swap is active
+free -h
+```
+
+### 4. First Boot Provisioning
 
 ```bash
 # Copy BLACK BOX files to NVMe
@@ -184,9 +300,12 @@ speaker-test -c 2 -t sine -f 1000 -l 1
 # Check ALSA configuration
 cat /etc/asound.conf
 
-# Restart audio services
-sudo systemctl restart pulseaudio
-sudo systemctl restart alsa-state
+# Configure ALSA default device (change card index if needed)
+arecord -l && aplay -l  # find your USB card index (often 1)
+sudo tee /etc/asound.conf <<'EOF'
+pcm.!default { type hw card 1 }
+ctl.!default { type hw card 1 }
+EOF
 ```
 
 #### Microphone Not Listed
@@ -208,16 +327,19 @@ groups
 
 #### Display Issues (eglfs not showing fullscreen)
 ```bash
-# Check display resolution
+# Run without desktop on HDMI (recommended for fullscreen)
+export QT_QPA_PLATFORM=eglfs
+
+# Alternative: Check display resolution (if using desktop)
 xrandr
 
-# Check X11 configuration
+# Check X11 configuration (if using desktop)
 cat /etc/X11/xorg.conf.d/99-blackbox.conf
 
-# Reconfigure display
+# Reconfigure display (if using desktop)
 sudo dpkg-reconfigure xserver-xorg
 
-# Restart X server
+# Restart X server (if using desktop)
 sudo systemctl restart gdm
 ```
 
@@ -261,11 +383,12 @@ sudo jetson_clocks
 ls -la /mnt/nvme/blackbox/models/whisper/
 ls -la /mnt/nvme/blackbox/models/piper/
 
-# Test Whisper
-/mnt/nvme/blackbox/models/whisper/whisper --help
+# Test Whisper.cpp (adjust path based on actual build location)
+/mnt/nvme/blackbox/models/whisper.cpp/main --help
+# or: /mnt/nvme/blackbox/models/whisper.cpp/bin/whisper --help
 
-# Test Piper
-/mnt/nvme/blackbox/models/piper/piper --help
+# Test Piper (adjust path based on actual build location)
+/mnt/nvme/blackbox/models/piper/build/piper --help
 ```
 
 #### Network Issues (Offline Mode)
@@ -273,11 +396,15 @@ ls -la /mnt/nvme/blackbox/models/piper/
 # Check network interfaces
 ip link show
 
-# Disable network (for offline operation)
-sudo systemctl stop NetworkManager
-sudo systemctl stop networking
+# Recommended: Keep NetworkManager running for local LAN/phone tether
+# The app is designed to stay local-only
 
-# Check firewall
+# Alternative: Hard offline mode with firewall
+sudo ufw default deny outgoing
+sudo ufw default allow incoming
+sudo ufw enable
+
+# Check firewall status
 sudo ufw status
 ```
 
