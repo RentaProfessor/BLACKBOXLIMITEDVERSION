@@ -1,0 +1,256 @@
+# BLACK BOX Configuration File
+# AI-assisted password and voice-memo manager
+
+# System Configuration
+system:
+  # Base directory for all BLACK BOX data
+  base_dir: "/mnt/nvme/blackbox"
+  
+  # Database configuration
+  database:
+    path: "/mnt/nvme/blackbox/db/vault.db"
+    backup_dir: "/mnt/nvme/blackbox/data/backups"
+    auto_backup: true
+    backup_interval_hours: 24
+  
+  # Logging configuration
+  logging:
+    level: "INFO"
+    log_dir: "/mnt/nvme/blackbox/logs"
+    max_log_size_mb: 100
+    backup_count: 5
+  
+  # Auto-lock configuration
+  auto_lock:
+    enabled: true
+    timeout_seconds: 300  # 5 minutes
+    warning_seconds: 60   # 1 minute warning
+
+# Audio Configuration
+audio:
+  # Microphone settings
+  microphone:
+    sample_rate: 16000
+    channels: 1
+    chunk_size: 1024
+    device: null  # Auto-detect
+  
+  # Speaker settings
+  speaker:
+    sample_rate: 22050
+    channels: 2
+    device: null  # Auto-detect
+  
+  # VAD (Voice Activity Detection) settings
+  vad:
+    window_ms: 700
+    threshold: 0.5
+    min_silence_ms: 500
+    max_silence_ms: 2000
+  
+  # TTS settings
+  tts:
+    model_path: "/mnt/nvme/blackbox/models/piper/en_US-lessac-medium.onnx"
+    config_path: "/mnt/nvme/blackbox/models/piper/en_US-lessac-medium.onnx.json"
+    sample_rate: 22050
+    preload: true
+
+# ASR (Automatic Speech Recognition) Configuration
+asr:
+  # Whisper.cpp settings
+  whisper:
+    model_path: "/mnt/nvme/blackbox/models/whisper/whisper-tiny.en.bin"
+    temperature: 0.0
+    temperature_fallback: 0.2
+    n_best: 3
+    gpu_acceleration: true
+  
+  # Audio processing for elderly speech
+  processing:
+    noise_reduction: true
+    volume_normalization: true
+    silence_removal: true
+    stutter_handling: true
+
+# NLP (Natural Language Processing) Configuration
+nlp:
+  # Site catalog
+  site_catalog:
+    path: "/mnt/nvme/blackbox/data/sites.json"
+    auto_update: false
+  
+  # Heuristic resolution
+  heuristics:
+    fuzzy_threshold: 0.82
+    phonetic_threshold: 0.8
+    partial_threshold: 0.6
+  
+  # LLM fallback
+  llm:
+    enabled: true
+    model_path: "/mnt/nvme/blackbox/models/llm/"
+    confidence_threshold: 0.85
+    confirmation_threshold: 0.65
+    timeout_seconds: 5
+  
+  # Password cleaning
+  password_cleaning:
+    remove_phrases: true
+    normalize_case: true
+    remove_punctuation: true
+    filter_numbers: true
+
+# UI Configuration
+ui:
+  # Display settings
+  display:
+    resolution: "1024x600"
+    fullscreen: true
+    high_contrast: true
+    touch_friendly: true
+  
+  # Color scheme
+  colors:
+    background: "#000000"
+    text: "#FFFFFF"
+    accent: "#FFFF00"
+    button_primary: "#0066CC"
+    button_success: "#00AA00"
+    button_warning: "#CC6600"
+    button_danger: "#CC0000"
+    status_ready: "#FFFFFF"
+    status_recording: "#FF0000"
+    status_success: "#00FF00"
+  
+  # Typography
+  typography:
+    font_family: "Arial"
+    font_size_large: 48
+    font_size_medium: 24
+    font_size_small: 18
+    font_weight: "bold"
+  
+  # Button sizes
+  buttons:
+    large_size: "200x200"
+    medium_size: "150x100"
+    small_size: "100x60"
+    touch_target: "150x150"
+
+# Security Configuration
+security:
+  # Encryption settings
+  encryption:
+    algorithm: "AES-256"
+    kdf: "Argon2id"
+    kdf_params:
+      time_cost: 3
+      memory_cost: 65536  # 64MB
+      parallelism: 4
+      hash_len: 32
+      salt_len: 16
+  
+  # Vault settings
+  vault:
+    auto_lock: true
+    lock_timeout: 300
+    max_login_attempts: 3
+    lockout_duration: 300
+  
+  # Password policy
+  password_policy:
+    min_length: 8
+    require_complexity: false
+    max_age_days: 365
+    history_count: 5
+
+# Performance Configuration
+performance:
+  # Memory management
+  memory:
+    max_memory_mb: 6144  # 6GB for 8GB system
+    gc_threshold: 0.8
+    swap_usage: true
+  
+  # GPU settings
+  gpu:
+    maxn_mode: true
+    max_clocks: true
+    power_mode: "MAXN"
+  
+  # Caching
+  cache:
+    tts_cache_size: 100
+    asr_cache_size: 50
+    nlp_cache_size: 200
+    cache_ttl_seconds: 3600
+
+# Hardware Configuration
+hardware:
+  # Jetson settings
+  jetson:
+    model: "Orin Nano 8GB"
+    power_mode: "MAXN"
+    fan_control: "auto"
+    thermal_throttling: true
+  
+  # Audio devices
+  audio_devices:
+    microphone: "USB"
+    speaker: "USB"
+    hub_powered: true
+  
+  # Display
+  display:
+    type: "7-inch HDMI/USB touchscreen"
+    resolution: "1024x600"
+    touch_enabled: true
+    calibration: "auto"
+
+# Backup Configuration
+backup:
+  # Automatic backups
+  auto_backup:
+    enabled: true
+    interval_hours: 24
+    retention_days: 30
+    compress: true
+  
+  # Manual backup
+  manual_backup:
+    enabled: true
+    max_backups: 10
+    backup_dir: "/mnt/nvme/blackbox/data/backups"
+  
+  # Cloud backup (disabled for offline operation)
+  cloud_backup:
+    enabled: false
+    provider: null
+    credentials: null
+
+# Monitoring Configuration
+monitoring:
+  # System monitoring
+  system:
+    enabled: true
+    check_interval_seconds: 60
+    alert_thresholds:
+      cpu_usage: 90
+      memory_usage: 85
+      disk_usage: 90
+      temperature: 80
+  
+  # Application monitoring
+  application:
+    enabled: true
+    log_errors: true
+    log_performance: true
+    metrics_collection: true
+  
+  # Health checks
+  health_checks:
+    database: true
+    audio: true
+    models: true
+    storage: true
+    network: false  # Offline operation

@@ -1,0 +1,60 @@
+[Unit]
+Description=BLACK BOX - AI-assisted password and voice-memo manager
+Documentation=https://github.com/blackbox/blackbox
+After=multi-user.target sound.target
+Wants=multi-user.target
+Requires=multi-user.target
+
+[Service]
+Type=simple
+User=blackbox
+Group=blackbox
+WorkingDirectory=/mnt/nvme/blackbox
+ExecStart=/usr/bin/python3 /mnt/nvme/blackbox/main.py
+ExecStop=/bin/kill -TERM $MAINPID
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=blackbox
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+# Environment variables
+Environment=PYTHONPATH=/mnt/nvme/blackbox
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/blackbox/.Xauthority
+Environment=BLACKBOX_BASE_DIR=/mnt/nvme/blackbox
+Environment=BLACKBOX_LOG_LEVEL=INFO
+Environment=BLACKBOX_OFFLINE_MODE=true
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/mnt/nvme/blackbox
+ReadWritePaths=/tmp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=6G
+CPUQuota=80%
+
+# GPU access for Jetson
+SupplementaryGroups=video
+SupplementaryGroups=audio
+SupplementaryGroups=plugdev
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+FinalKillSignal=SIGKILL
+
+[Install]
+WantedBy=multi-user.target

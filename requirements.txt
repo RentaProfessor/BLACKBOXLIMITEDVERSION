@@ -1,0 +1,38 @@
+# BLACK BOX - Python Dependencies
+# AI-assisted password and voice-memo manager for elderly users
+
+# Core UI Framework
+PySide6>=6.6.0
+
+# Database and Encryption
+pysqlcipher3>=1.1.0
+argon2-cffi>=23.1.0
+
+# Natural Language Processing
+rapidfuzz>=3.5.0
+metaphone>=0.6
+
+# Audio Processing
+sounddevice>=0.4.6
+simpleaudio>=1.0.4
+numpy>=1.24.0
+scipy>=1.11.0
+librosa>=0.10.0
+
+# Machine Learning (for LLM integration)
+torch>=2.1.0
+torchaudio>=2.1.0
+
+# Optional: TensorRT-LLM (if available on Jetson)
+# tensorrt-llm>=0.8.0
+
+# System and Utilities
+psutil>=5.9.0
+pyyaml>=6.0.0
+requests>=2.31.0
+
+# Development and Testing (optional)
+pytest>=7.4.0
+pytest-qt>=4.2.0
+black>=23.0.0
+flake8>=6.0.0
