@@ -6,6 +6,8 @@ AI-assisted password and voice-memo manager for elderly users
 
 BLACK BOX is a complete offline software stack designed for elderly users to manage passwords and voice memos using natural speech interaction. The system runs on an NVIDIA Jetson Orin Nano 8GB with a 7-inch touchscreen, USB microphone, and USB speaker.
 
+**Verified for JetPack 6.0 (L4T 36.3)** — earlier JetPack 5.x releases will not work due to dependency mismatches in TensorRT-LLM and Python 3.10 ABI.
+
 ## Features
 
 - **Voice Recognition**: GPU-optimized Whisper.cpp with VAD for elderly speech patterns
@@ -36,7 +38,7 @@ BLACK BOX is a complete offline software stack designed for elderly users to man
 sudo apt update && sudo apt full-upgrade -y
 sudo nvpmodel -m 0
 sudo jetson_clocks
-sudo apt install -y python3-pip python3-venv python3-pyqt5 \
+sudo apt install -y python3-pip python3-venv python3-pyside6 \
                     ffmpeg inotify-tools sqlcipher libsqlcipher-dev \
                     docker.io nvidia-container-toolkit p7zip-full
 sudo nvidia-ctk runtime configure
@@ -117,7 +119,7 @@ journalctl -u blackbox -f
 sudo apt update && sudo apt full-upgrade -y
 sudo nvpmodel -m 0
 sudo jetson_clocks
-sudo apt install -y python3-pip python3-venv python3-pyqt5 \
+sudo apt install -y python3-pip python3-venv python3-pyside6 \
                     ffmpeg inotify-tools sqlcipher libsqlcipher-dev \
                     docker.io nvidia-container-toolkit p7zip-full
 sudo nvidia-ctk runtime configure
@@ -383,12 +385,11 @@ sudo jetson_clocks
 ls -la /mnt/nvme/blackbox/models/whisper/
 ls -la /mnt/nvme/blackbox/models/piper/
 
-# Test Whisper.cpp (adjust path based on actual build location)
-/mnt/nvme/blackbox/models/whisper.cpp/main --help
-# or: /mnt/nvme/blackbox/models/whisper.cpp/bin/whisper --help
+# Test Whisper.cpp
+/mnt/nvme/blackbox/models/whisper/whisper --help
 
-# Test Piper (adjust path based on actual build location)
-/mnt/nvme/blackbox/models/piper/build/piper --help
+# Test Piper
+/mnt/nvme/blackbox/models/piper/piper --help
 ```
 
 #### Network Issues (Offline Mode)
@@ -399,9 +400,9 @@ ip link show
 # Recommended: Keep NetworkManager running for local LAN/phone tether
 # The app is designed to stay local-only
 
-# Alternative: Hard offline mode with firewall
-sudo ufw default deny outgoing
-sudo ufw default allow incoming
+# Optional: restrict external traffic but keep local LAN access
+sudo ufw allow out to 192.168.0.0/16
+sudo ufw deny out to any
 sudo ufw enable
 
 # Check firewall status
@@ -526,22 +527,30 @@ journalctl -u blackbox -f
 # System logs
 journalctl -f
 
-# Audio logs
-journalctl -u pulseaudio -f
+# Audio logs (ALSA-only)
+sudo dmesg | grep snd
 ```
 
 ### Support and Recovery
 
 #### Backup and Restore
 ```bash
-# Create backup
-sudo /mnt/nvme/blackbox/scripts/backup.sh
+# Create backup (using vault export function)
+python3 -c "
+from blackbox.vault.db import VaultDB
+vault = VaultDB('/mnt/nvme/blackbox/db/vault.db')
+vault.export_encrypted_backup('/mnt/nvme/blackbox/db/backups/backup.db', 'backup_passphrase')
+"
 
 # List backups
-ls -la /mnt/nvme/blackbox/data/backups/
+ls -la /mnt/nvme/blackbox/db/backups/
 
 # Restore from backup (if needed)
-sudo cp /mnt/nvme/blackbox/data/backups/blackbox_backup_YYYYMMDD_HHMMSS.db /mnt/nvme/blackbox/db/vault.db
+python3 -c "
+from blackbox.vault.db import VaultDB
+vault = VaultDB('/mnt/nvme/blackbox/db/vault.db')
+vault.import_encrypted_backup('/mnt/nvme/blackbox/db/backups/backup.db', 'backup_passphrase')
+"
 ```
 
 #### Emergency Access
@@ -564,10 +573,27 @@ systemctl status blackbox
 - Auto-lock on inactivity
 - Secure deletion of sensitive data from memory
 
-## Support
+## License & Contact
 
-For technical support or issues, check the logs at `/mnt/nvme/blackbox/logs/blackbox.log`.
+For inquiries or integration requests, contact FutureClarity Technologies support @ futureclarity.tech
 
-## License
+## Verification Checklist
 
-Proprietary - BLACK BOX Team
+Quick deployment QA checklist:
+
+- [ ] **Power**: System boots to fullscreen UI
+- [ ] **Audio**: Microphone records, speaker plays TTS
+- [ ] **UI**: Large buttons respond to touch, status banners show
+- [ ] **Vault**: Encrypted storage works, auto-lock functions
+- [ ] **Logs**: Rotating logs active, no secrets in logs
+- [ ] **Offline**: Unplug network, system still functions
+
+### Performance Validation
+
+```bash
+# Test ASR performance (should be ≤ 1.5s)
+time python3 scripts/test_asr.sh
+
+# Disable GUI permanently (optional)
+sudo systemctl set-default multi-user.target
+```
